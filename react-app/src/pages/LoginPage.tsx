@@ -49,7 +49,7 @@ export default function LoginPage() {
                   type="email"
                   placeholder="Email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value)}
                   required
                 />
               </fieldset>
@@ -59,15 +59,11 @@ export default function LoginPage() {
                   type="password"
                   placeholder="Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   required
                 />
               </fieldset>
-              <button
-                className="btn btn-lg btn-primary pull-xs-right"
-                type="submit"
-                disabled={submitting}
-              >
+              <button className="btn btn-lg btn-primary pull-xs-right" type="submit" disabled={submitting}>
                 Sign in
               </button>
             </form>

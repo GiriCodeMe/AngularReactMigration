@@ -1,43 +1,41 @@
-import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   getArticles,
   getFeedArticles,
   favoriteArticle,
   unfavoriteArticle,
   type ArticleFilters,
-} from '../services/articles.service'
-import { getTags } from '../services/tags.service'
-import type { Article } from '../types/article'
+} from '../services/articles.service';
+import { getTags } from '../services/tags.service';
+import type { Article } from '../types/article';
 
-const LIMIT = 10
+const LIMIT = 10;
 
 // ─── Article Preview Card ─────────────────────────────────────────────────────
 
 function ArticlePreview({ article: initial }: { article: Article }) {
-  const { isAuthenticated } = useAuth()
-  const [article, setArticle] = useState(initial)
-  const [toggling, setToggling] = useState(false)
+  const { isAuthenticated } = useAuth();
+  const [article, setArticle] = useState(initial);
+  const [toggling, setToggling] = useState(false);
 
   const date = new Date(article.createdAt).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
 
   async function handleFavorite() {
-    if (!isAuthenticated || toggling) return
-    setToggling(true)
+    if (!isAuthenticated || toggling) return;
+    setToggling(true);
     try {
-      const updated = article.favorited
-        ? await unfavoriteArticle(article.slug)
-        : await favoriteArticle(article.slug)
-      setArticle(updated)
+      const updated = article.favorited ? await unfavoriteArticle(article.slug) : await favoriteArticle(article.slug);
+      setArticle(updated);
     } catch {
       // ignore — user sees no change
     } finally {
-      setToggling(false)
+      setToggling(false);
     }
   }
 
@@ -80,7 +78,7 @@ function ArticlePreview({ article: initial }: { article: Article }) {
         )}
       </Link>
     </div>
-  )
+  );
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
@@ -90,11 +88,11 @@ function Pagination({
   total,
   onChange,
 }: {
-  current: number
-  total: number
-  onChange: (page: number) => void
+  current: number;
+  total: number;
+  onChange: (page: number) => void;
 }) {
-  if (total <= 1) return null
+  if (total <= 1) return null;
   return (
     <nav>
       <ul className="pagination">
@@ -107,82 +105,79 @@ function Pagination({
         ))}
       </ul>
     </nav>
-  )
+  );
 }
 
 // ─── Home Page ────────────────────────────────────────────────────────────────
 
-type FeedType = 'global' | 'feed' | 'tag'
+type FeedType = 'global' | 'feed' | 'tag';
 
 export default function Home() {
-  const { isAuthenticated, status } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const { isAuthenticated, status } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const tag = searchParams.get('tag') ?? undefined
-  const page = Math.max(1, Number(searchParams.get('page') ?? '1'))
-  const feedParam = searchParams.get('feed')
+  const tag = searchParams.get('tag') ?? undefined;
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
+  const feedParam = searchParams.get('feed');
 
   // Derive active tab: tag > personal feed > global feed
-  const activeFeed: FeedType =
-    tag ? 'tag'
-    : feedParam === 'personal' && isAuthenticated ? 'feed'
-    : 'global'
+  const activeFeed: FeedType = tag ? 'tag' : feedParam === 'personal' && isAuthenticated ? 'feed' : 'global';
 
-  const [articles, setArticles] = useState<Article[]>([])
-  const [articlesCount, setArticlesCount] = useState(0)
-  const [tags, setTags] = useState<string[]>([])
-  const [loadingArticles, setLoadingArticles] = useState(true)
-  const [loadingTags, setLoadingTags] = useState(true)
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [articlesCount, setArticlesCount] = useState(0);
+  const [tags, setTags] = useState<string[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(true);
+  const [loadingTags, setLoadingTags] = useState(true);
 
   // Fetch popular tags once on mount
   useEffect(() => {
     getTags()
       .then(setTags)
       .catch(() => setTags([]))
-      .finally(() => setLoadingTags(false))
-  }, [])
+      .finally(() => setLoadingTags(false));
+  }, []);
 
   // Fetch articles whenever feed type, tag, or page changes.
   // Also wait until auth state is resolved so personal feed works correctly.
   useEffect(() => {
-    if (status === 'loading') return
+    if (status === 'loading') return;
 
-    setLoadingArticles(true)
-    const filters: ArticleFilters = { limit: LIMIT, offset: (page - 1) * LIMIT }
-    if (tag) filters.tag = tag
+    setLoadingArticles(true);
+    const filters: ArticleFilters = { limit: LIMIT, offset: (page - 1) * LIMIT };
+    if (tag) filters.tag = tag;
 
-    const fetch = activeFeed === 'feed' ? getFeedArticles(filters) : getArticles(filters)
+    const fetch = activeFeed === 'feed' ? getFeedArticles(filters) : getArticles(filters);
 
     fetch
       .then(({ articles, articlesCount }) => {
-        setArticles(articles)
-        setArticlesCount(articlesCount)
+        setArticles(articles);
+        setArticlesCount(articlesCount);
       })
       .catch(() => {
-        setArticles([])
-        setArticlesCount(0)
+        setArticles([]);
+        setArticlesCount(0);
       })
-      .finally(() => setLoadingArticles(false))
-  }, [activeFeed, tag, page, status]) // eslint-disable-line react-hooks/exhaustive-deps
+      .finally(() => setLoadingArticles(false));
+  }, [activeFeed, tag, page, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalPages = Math.ceil(articlesCount / LIMIT)
+  const totalPages = Math.ceil(articlesCount / LIMIT);
 
   function setFeed(type: FeedType, tagName?: string) {
     if (type === 'tag' && tagName) {
-      setSearchParams({ tag: tagName })
+      setSearchParams({ tag: tagName });
     } else if (type === 'feed') {
-      setSearchParams({ feed: 'personal' })
+      setSearchParams({ feed: 'personal' });
     } else {
-      setSearchParams({})
+      setSearchParams({});
     }
   }
 
   function setPage(p: number) {
     setSearchParams(prev => {
-      const next = new URLSearchParams(prev)
-      next.set('page', String(p))
-      return next
-    })
+      const next = new URLSearchParams(prev);
+      next.set('page', String(p));
+      return next;
+    });
   }
 
   return (
@@ -251,11 +246,7 @@ export default function Home() {
               ) : (
                 <div className="tag-list">
                   {tags.map(t => (
-                    <button
-                      key={t}
-                      className="tag-pill tag-default"
-                      onClick={() => setFeed('tag', t)}
-                    >
+                    <button key={t} className="tag-pill tag-default" onClick={() => setFeed('tag', t)}>
                       {t}
                     </button>
                   ))}
@@ -266,5 +257,5 @@ export default function Home() {
         </div>
       </div>
     </div>
-  )
+  );
 }

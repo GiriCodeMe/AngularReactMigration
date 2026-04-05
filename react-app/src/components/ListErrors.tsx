@@ -10,7 +10,7 @@ export default function ListErrors({ errors }: Props) {
   return (
     <ul className="error-messages">
       {Object.entries(errors).map(([field, messages]) =>
-        (messages as string[]).map((message) => (
+        (messages as string[]).map(message => (
           <li key={`${field}-${message}`}>
             {field} {message}
           </li>

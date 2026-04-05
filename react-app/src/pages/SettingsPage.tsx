@@ -65,7 +65,7 @@ export default function SettingsPage() {
                     type="text"
                     placeholder="URL of profile picture"
                     value={image}
-                    onChange={(e) => setImage(e.target.value)}
+                    onChange={e => setImage(e.target.value)}
                   />
                 </fieldset>
                 <fieldset className="form-group">
@@ -74,7 +74,7 @@ export default function SettingsPage() {
                     type="text"
                     placeholder="Username"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={e => setUsername(e.target.value)}
                     required
                   />
                 </fieldset>
@@ -84,7 +84,7 @@ export default function SettingsPage() {
                     rows={8}
                     placeholder="Short bio about you"
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
+                    onChange={e => setBio(e.target.value)}
                   />
                 </fieldset>
                 <fieldset className="form-group">
@@ -93,7 +93,7 @@ export default function SettingsPage() {
                     type="email"
                     placeholder="Email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={e => setEmail(e.target.value)}
                     required
                   />
                 </fieldset>
@@ -103,14 +103,10 @@ export default function SettingsPage() {
                     type="password"
                     placeholder="New Password (leave blank to keep current)"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={e => setPassword(e.target.value)}
                   />
                 </fieldset>
-                <button
-                  className="btn btn-lg btn-primary pull-xs-right"
-                  type="submit"
-                  disabled={submitting}
-                >
+                <button className="btn btn-lg btn-primary pull-xs-right" type="submit" disabled={submitting}>
                   Update Settings
                 </button>
               </fieldset>

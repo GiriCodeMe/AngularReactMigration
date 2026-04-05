@@ -21,32 +21,29 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!username) return;
     setLoading(true);
-    getProfile(username).then(setProfile).catch(() => setProfile(null));
+    getProfile(username)
+      .then(setProfile)
+      .catch(() => setProfile(null));
   }, [username]);
 
   useEffect(() => {
     if (!username) return;
     setLoading(true);
-    const filters =
-      tab === 'authored' ? { author: username } : { favorited: username };
+    const filters = tab === 'authored' ? { author: username } : { favorited: username };
     getArticles(filters)
-      .then((res) => setArticles(res.articles))
+      .then(res => setArticles(res.articles))
       .finally(() => setLoading(false));
   }, [username, tab]);
 
   async function handleFollow() {
     if (!profile) return;
-    const updated = profile.following
-      ? await unfollowUser(profile.username)
-      : await followUser(profile.username);
+    const updated = profile.following ? await unfollowUser(profile.username) : await followUser(profile.username);
     setProfile(updated);
   }
 
   async function handleFavorite(article: Article) {
-    const updated = article.favorited
-      ? await unfavoriteArticle(article.slug)
-      : await favoriteArticle(article.slug);
-    setArticles(articles.map((a) => (a.slug === updated.slug ? updated : a)));
+    const updated = article.favorited ? await unfavoriteArticle(article.slug) : await favoriteArticle(article.slug);
+    setArticles(articles.map(a => (a.slug === updated.slug ? updated : a)));
   }
 
   if (!profile) return null;
@@ -57,9 +54,7 @@ export default function ProfilePage() {
         <div className="container">
           <div className="row">
             <div className="col-xs-12 col-md-10 offset-md-1">
-              {profile.image && (
-                <img src={profile.image} className="user-img" alt={profile.username} />
-              )}
+              {profile.image && <img src={profile.image} className="user-img" alt={profile.username} />}
               <h4>{profile.username}</h4>
               {profile.bio && <p>{profile.bio}</p>}
 
@@ -69,9 +64,7 @@ export default function ProfilePage() {
                 </Link>
               ) : isAuthenticated ? (
                 <button
-                  className={`btn btn-sm action-btn ${
-                    profile.following ? 'btn-secondary' : 'btn-outline-secondary'
-                  }`}
+                  className={`btn btn-sm action-btn ${profile.following ? 'btn-secondary' : 'btn-outline-secondary'}`}
                   onClick={handleFollow}
                 >
                   <i className="ion-plus-round" />
@@ -112,26 +105,20 @@ export default function ProfilePage() {
             ) : articles.length === 0 ? (
               <div className="article-preview">No articles here... yet.</div>
             ) : (
-              articles.map((article) => (
+              articles.map(article => (
                 <div className="article-preview" key={article.slug}>
                   <div className="article-meta">
                     <Link to={`/profile/${article.author.username}`}>
-                      {article.author.image && (
-                        <img src={article.author.image} alt={article.author.username} />
-                      )}
+                      {article.author.image && <img src={article.author.image} alt={article.author.username} />}
                     </Link>
                     <div className="info">
                       <Link to={`/profile/${article.author.username}`} className="author">
                         {article.author.username}
                       </Link>
-                      <span className="date">
-                        {new Date(article.createdAt).toDateString()}
-                      </span>
+                      <span className="date">{new Date(article.createdAt).toDateString()}</span>
                     </div>
                     <button
-                      className={`btn btn-outline-primary btn-sm pull-xs-right ${
-                        article.favorited ? 'active' : ''
-                      }`}
+                      className={`btn btn-outline-primary btn-sm pull-xs-right ${article.favorited ? 'active' : ''}`}
                       onClick={() => handleFavorite(article)}
                     >
                       <i className="ion-heart" /> {article.favoritesCount}

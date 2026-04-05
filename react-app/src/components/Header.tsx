@@ -32,17 +32,8 @@ export default function Header() {
                 </NavLink>
               </li>
               <li className="nav-item">
-                <NavLink
-                  className="nav-link"
-                  to={`/profile/${user?.username}`}
-                >
-                  {user?.image && (
-                    <img
-                      src={user.image}
-                      alt={user.username}
-                      className="user-pic"
-                    />
-                  )}
+                <NavLink className="nav-link" to={`/profile/${user?.username}`}>
+                  {user?.image && <img src={user.image} alt={user.username} className="user-pic" />}
                   {user?.username}
                 </NavLink>
               </li>

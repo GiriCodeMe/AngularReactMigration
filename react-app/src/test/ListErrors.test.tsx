@@ -14,11 +14,7 @@ describe('ListErrors', () => {
   });
 
   it('renders error messages from the errors object', () => {
-    render(
-      <ListErrors
-        errors={{ email: ['is invalid'], password: ['is too short'] }}
-      />,
-    );
+    render(<ListErrors errors={{ email: ['is invalid'], password: ['is too short'] }} />);
     expect(screen.getByText(/email is invalid/i)).toBeInTheDocument();
     expect(screen.getByText(/password is too short/i)).toBeInTheDocument();
   });

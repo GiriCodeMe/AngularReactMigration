@@ -20,7 +20,7 @@ export default function EditorPage() {
 
   useEffect(() => {
     if (!slug) return;
-    getArticle(slug).then((article) => {
+    getArticle(slug).then(article => {
       setTitle(article.title);
       setDescription(article.description);
       setBody(article.body);
@@ -40,7 +40,7 @@ export default function EditorPage() {
   }
 
   function removeTag(tag: string) {
-    setTagList(tagList.filter((t) => t !== tag));
+    setTagList(tagList.filter(t => t !== tag));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -50,9 +50,7 @@ export default function EditorPage() {
     setErrors(null);
     try {
       const payload = { title, description, body, tagList };
-      const article = slug
-        ? await updateArticle(slug, payload)
-        : await createArticle(payload);
+      const article = slug ? await updateArticle(slug, payload) : await createArticle(payload);
       navigate(`/article/${article.slug}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { errors?: Errors } } };
@@ -77,7 +75,7 @@ export default function EditorPage() {
                     className="form-control form-control-lg"
                     placeholder="Article Title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={e => setTitle(e.target.value)}
                     required
                   />
                 </fieldset>
@@ -87,7 +85,7 @@ export default function EditorPage() {
                     className="form-control"
                     placeholder="What's this article about?"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={e => setDescription(e.target.value)}
                     required
                   />
                 </fieldset>
@@ -97,7 +95,7 @@ export default function EditorPage() {
                     rows={8}
                     placeholder="Write your article (in markdown)"
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    onChange={e => setBody(e.target.value)}
                     required
                   />
                 </fieldset>
@@ -107,27 +105,19 @@ export default function EditorPage() {
                     className="form-control"
                     placeholder="Enter tags — press Enter to add"
                     value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
+                    onChange={e => setTagInput(e.target.value)}
                     onKeyDown={handleTagKeyDown}
                   />
                   <div className="tag-list">
-                    {tagList.map((tag) => (
+                    {tagList.map(tag => (
                       <span key={tag} className="tag-default tag-pill">
-                        <i
-                          className="ion-close-round"
-                          onClick={() => removeTag(tag)}
-                          style={{ cursor: 'pointer' }}
-                        />
+                        <i className="ion-close-round" onClick={() => removeTag(tag)} style={{ cursor: 'pointer' }} />
                         &nbsp;{tag}
                       </span>
                     ))}
                   </div>
                 </fieldset>
-                <button
-                  className="btn btn-lg pull-xs-right btn-primary"
-                  type="submit"
-                  disabled={submitting}
-                >
+                <button className="btn btn-lg pull-xs-right btn-primary" type="submit" disabled={submitting}>
                   {slug ? 'Update Article' : 'Publish Article'}
                 </button>
               </fieldset>

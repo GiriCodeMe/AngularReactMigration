@@ -1,0 +1,357 @@
+name: CI — React Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: react-app
+
+jobs:
+  quality-gates:
+    name: Build & Quality Gates
+    runs-on: ubuntu-latest
+    outputs:
+      build_outcome:     ${{ steps.build.outcome }}
+      typecheck_outcome: ${{ steps.typecheck.outcome }}
+      format_outcome:    ${{ steps.format.outcome }}
+      unit_outcome:      ${{ steps.unit-tests.outcome }}
+      e2e_outcome:       ${{ steps.e2e-tests.outcome }}
+      a11y_outcome:      ${{ steps.a11y.outcome }}
+      vuln_outcome:      ${{ steps.vuln-check.outcome }}
+
+    steps:
+      # ── Setup ────────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Gate 1: Build ────────────────────────────────────────────────────────
+      - name: Build
+        id: build
+        continue-on-error: true
+        run: npm run build
+
+      - name: Upload build artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: react-app/dist/
+          if-no-files-found: ignore
+
+      # ── Gate 2: TypeScript Check ─────────────────────────────────────────────
+      - name: TypeScript Check
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      # ── Gate 3: Format Check (Prettier) ─────────────────────────────────────
+      - name: Format Check
+        id: format
+        continue-on-error: true
+        run: npm run format:check
+
+      # ── Gate 4: Unit Tests + Coverage ────────────────────────────────────────
+      - name: Unit Tests & Coverage
+        id: unit-tests
+        continue-on-error: true
+        run: |
+          npm run test:coverage 2>&1 | tee /tmp/unit-test-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: react-app/coverage/
+          if-no-files-found: ignore
+
+      - name: Upload unit test results (vitest JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-unit
+          path: react-app/test-results/vitest-results.json
+          if-no-files-found: ignore
+
+      # ── Gate 5: E2E Tests (Playwright) ───────────────────────────────────────
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E Tests (Playwright)
+        id: e2e-tests
+        continue-on-error: true
+        run: |
+          npm run test:e2e 2>&1 | tee /tmp/e2e-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: react-app/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload E2E test results (playwright JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-e2e
+          path: react-app/test-results/playwright-results.json
+          if-no-files-found: ignore
+
+      # ── Gate 6: Accessibility — WCAG 2.1 AA (axe-core) ───────────────────────
+      - name: Accessibility Tests (WCAG 2.1 AA)
+        id: a11y
+        continue-on-error: true
+        run: |
+          npm run build
+          npm run test:a11y 2>&1 | tee /tmp/a11y-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload A11y test results (JSON)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-a11y
+          path: react-app/test-results/a11y-results.json
+          if-no-files-found: ignore
+
+      # ── Gate 7: Vulnerability Check ───────────────────────────────────────────
+      - name: Library Audit (informational)
+        id: lib-audit
+        continue-on-error: true
+        run: npm audit || true
+
+      - name: Vulnerability Check (fail on moderate+)
+        id: vuln-check
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+
+      # ── Report: Go / No-Go Dashboard ─────────────────────────────────────────
+      - name: Generate Go/No-Go Report
+        if: always()
+        env:
+          BUILD:     ${{ steps.build.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          FORMAT:    ${{ steps.format.outcome }}
+          TESTS:     ${{ steps.unit-tests.outcome }}
+          E2E:       ${{ steps.e2e-tests.outcome }}
+          A11Y:      ${{ steps.a11y.outcome }}
+          LIB_AUDIT: ${{ steps.lib-audit.outcome }}
+          VULN:      ${{ steps.vuln-check.outcome }}
+        run: |
+          icon() { [ "$1" = "success" ] && echo "✅ Pass" || echo "❌ Fail"; }
+          strip_ansi() { sed 's/\x1B\[[0-9;]*[mGKHF]//g' "$1" 2>/dev/null || echo "Output not available"; }
+
+          PASS=true
+          for s in "$BUILD" "$TYPECHECK" "$FORMAT" "$TESTS" "$E2E" "$A11Y" "$LIB_AUDIT" "$VULN"; do
+            [ "$s" != "success" ] && PASS=false
+          done
+
+          if [ "$PASS" = true ]; then
+            CONCLUSION="✅ **Go**"
+            CONCLUSION_TEXT="All quality gates passed. Safe to deploy."
+          else
+            CONCLUSION="❌ **No-Go**"
+            CONCLUSION_TEXT="One or more quality gates failed. Do not deploy."
+          fi
+
+          UNIT_SUMMARY=$(grep -E "^ *Tests " /tmp/unit-test-output.txt 2>/dev/null | tail -1 \
+            | sed 's/^ *//' | sed 's/\x1B\[[0-9;]*[mGKHF]//g' || echo "unavailable")
+          E2E_SUMMARY=$(grep -E "[0-9]+ (passed|failed)" /tmp/e2e-output.txt 2>/dev/null | tail -1 \
+            | sed 's/^ *//' | sed 's/\x1B\[[0-9;]*[mGKHF]//g' || echo "unavailable")
+          A11Y_SUMMARY=$(grep -E "[0-9]+ (passed|failed)" /tmp/a11y-output.txt 2>/dev/null | tail -1 \
+            | sed 's/^ *//' | sed 's/\x1B\[[0-9;]*[mGKHF]//g' || echo "unavailable")
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          # 📊 Build Quality Report — conduit-react
+
+          | Gate | Check | Status | Threshold |
+          |------|-------|--------|-----------|
+          | 1 | Build | $(icon $BUILD) | Must compile without errors |
+          | 2 | TypeScript Check | $(icon $TYPECHECK) | 0 type errors |
+          | 3 | Format Check (Prettier) | $(icon $FORMAT) | All files formatted |
+          | 4 | Unit Tests & Coverage | $(icon $TESTS) | 0 failures + ≥ 70% coverage |
+          | 5 | E2E Tests (Playwright) | $(icon $E2E) | All behavioural tests pass |
+          | 6 | Accessibility — WCAG 2.1 AA | $(icon $A11Y) | 0 axe-core violations |
+          | 7 | Library Audit | $(icon $LIB_AUDIT) | All advisories reported |
+          | 8 | Vulnerability Check (npm audit) | $(icon $VULN) | No moderate/high/critical vulnerabilities |
+
+          EOF
+
+          {
+            echo "<details>"
+            echo "<summary>🧪 Unit Test Results — ${UNIT_SUMMARY}</summary>"
+            echo ""
+            echo '```'
+            strip_ansi /tmp/unit-test-output.txt
+            echo '```'
+            echo "</details>"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "<details>"
+            echo "<summary>🎭 E2E Test Results (Playwright) — ${E2E_SUMMARY}</summary>"
+            echo ""
+            echo '```'
+            strip_ansi /tmp/e2e-output.txt
+            echo '```'
+            echo "</details>"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "<details>"
+            echo "<summary>♿ Accessibility Test Results (WCAG 2.1 AA) — ${A11Y_SUMMARY}</summary>"
+            echo ""
+            echo '```'
+            strip_ansi /tmp/a11y-output.txt
+            echo '```'
+            echo "</details>"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+
+          ---
+
+          ## Conclusion: $CONCLUSION
+
+          > $CONCLUSION_TEXT
+          EOF
+
+      # ── Enforce: fail the job if any gate failed ──────────────────────────────
+      - name: Enforce Gates
+        if: always()
+        env:
+          BUILD:     ${{ steps.build.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          FORMAT:    ${{ steps.format.outcome }}
+          TESTS:     ${{ steps.unit-tests.outcome }}
+          E2E:       ${{ steps.e2e-tests.outcome }}
+          A11Y:      ${{ steps.a11y.outcome }}
+          LIB_AUDIT: ${{ steps.lib-audit.outcome }}
+          VULN:      ${{ steps.vuln-check.outcome }}
+        run: |
+          FAILED=""
+          [ "$BUILD"     != "success" ] && FAILED="$FAILED\n  ❌ Build"
+          [ "$TYPECHECK" != "success" ] && FAILED="$FAILED\n  ❌ TypeScript Check"
+          [ "$FORMAT"    != "success" ] && FAILED="$FAILED\n  ❌ Format Check (Prettier)"
+          [ "$TESTS"     != "success" ] && FAILED="$FAILED\n  ❌ Unit Tests & Coverage"
+          [ "$E2E"       != "success" ] && FAILED="$FAILED\n  ❌ E2E Tests (Playwright)"
+          [ "$A11Y"      != "success" ] && FAILED="$FAILED\n  ❌ Accessibility — WCAG 2.1 AA"
+          [ "$LIB_AUDIT" != "success" ] && FAILED="$FAILED\n  ❌ Library Audit"
+          [ "$VULN"      != "success" ] && FAILED="$FAILED\n  ❌ Vulnerability Check"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::No-Go — the following gates failed:$(printf "$FAILED")"
+            exit 1
+          fi
+
+          echo "All quality gates passed — Go ✅"
+
+  # ── Publish Metrics to ai-sdlc-dashboard ─────────────────────────────────
+  publish-metrics:
+    name: Publish SDLC Metrics
+    needs: quality-gates
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout AngularReactMigration
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: react-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: react-app
+        run: npm ci
+
+      # Download artifacts from quality-gates job
+      - name: Download unit test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-unit
+          path: react-app/test-results/
+        continue-on-error: true
+
+      - name: Download E2E test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-e2e
+          path: react-app/test-results/
+        continue-on-error: true
+
+      - name: Download A11y test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-a11y
+          path: react-app/test-results/
+        continue-on-error: true
+
+      - name: Download unit coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: react-app/coverage/
+        continue-on-error: true
+
+      - name: Collect metrics
+        working-directory: react-app
+        run: node scripts/collect-metrics.js
+        env:
+          GITHUB_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID:    ${{ github.run_id }}
+          GATE_BUILD:       ${{ needs.quality-gates.outputs.build_outcome }}
+          GATE_TYPECHECK:   ${{ needs.quality-gates.outputs.typecheck_outcome }}
+          GATE_FORMAT:      ${{ needs.quality-gates.outputs.format_outcome }}
+          GATE_UNIT:        ${{ needs.quality-gates.outputs.unit_outcome }}
+          GATE_E2E:         ${{ needs.quality-gates.outputs.e2e_outcome }}
+          GATE_A11Y:        ${{ needs.quality-gates.outputs.a11y_outcome }}
+          GATE_VULN:        ${{ needs.quality-gates.outputs.vuln_outcome }}
+
+      - name: Checkout ai-sdlc-dashboard
+        uses: actions/checkout@v4
+        with:
+          repository: GiriCodeMe/ai-sdlc-dashboard
+          token: ${{ secrets.SDLC_DASHBOARD_PAT }}
+          path: dashboard-repo
+
+      - name: Copy AIKPI metrics to dashboard repo
+        run: |
+          mkdir -p dashboard-repo/metrics/conduit-react
+          cp react-app/metrics/AIKPI.json dashboard-repo/metrics/conduit-react/AIKPI.json
+
+      - name: Commit and push metrics
+        working-directory: dashboard-repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add metrics/conduit-react/AIKPI.json
+          git diff --staged --quiet && echo "No metrics change" && exit 0
+          git commit -m "chore: update conduit-react AIKPI metrics [skip ci]"
+          git push

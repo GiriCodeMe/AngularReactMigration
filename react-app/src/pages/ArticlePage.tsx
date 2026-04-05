@@ -3,12 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  getArticle,
-  deleteArticle,
-  favoriteArticle,
-  unfavoriteArticle,
-} from '../services/articles.service';
+import { getArticle, deleteArticle, favoriteArticle, unfavoriteArticle } from '../services/articles.service';
 import { getComments, addComment, deleteComment } from '../services/comments.service';
 import { followUser, unfollowUser } from '../services/profile.service';
 import type { Article, Comment } from '../types/article';
@@ -41,9 +36,7 @@ export default function ArticlePage() {
 
   async function handleFavorite() {
     if (!article) return;
-    const updated = article.favorited
-      ? await unfavoriteArticle(article.slug)
-      : await favoriteArticle(article.slug);
+    const updated = article.favorited ? await unfavoriteArticle(article.slug) : await favoriteArticle(article.slug);
     setArticle(updated);
   }
 
@@ -72,11 +65,16 @@ export default function ArticlePage() {
   async function handleDeleteComment(commentId: number) {
     if (!slug) return;
     await deleteComment(slug, commentId);
-    setComments(comments.filter((c) => c.id !== commentId));
+    setComments(comments.filter(c => c.id !== commentId));
   }
 
   if (loading) return null;
-  if (error || !article) return <div className="container page"><p>{error}</p></div>;
+  if (error || !article)
+    return (
+      <div className="container page">
+        <p>{error}</p>
+      </div>
+    );
 
   const bodyHtml = DOMPurify.sanitize(marked.parse(article.body) as string);
 
@@ -101,7 +99,7 @@ export default function ArticlePage() {
           <div className="col-md-12">
             <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
             <ul className="tag-list">
-              {article.tagList.map((tag) => (
+              {article.tagList.map(tag => (
                 <li key={tag} className="tag-default tag-pill tag-outline">
                   {tag}
                 </li>
@@ -133,13 +131,11 @@ export default function ArticlePage() {
                     placeholder="Write a comment..."
                     rows={3}
                     value={commentBody}
-                    onChange={(e) => setCommentBody(e.target.value)}
+                    onChange={e => setCommentBody(e.target.value)}
                   />
                 </div>
                 <div className="card-footer">
-                  {user?.image && (
-                    <img src={user.image} className="comment-author-img" alt={user.username} />
-                  )}
+                  {user?.image && <img src={user.image} className="comment-author-img" alt={user.username} />}
                   <button className="btn btn-sm btn-primary" type="submit">
                     Post Comment
                   </button>
@@ -147,33 +143,23 @@ export default function ArticlePage() {
               </form>
             ) : (
               <p>
-                <Link to="/login">Sign in</Link> or <Link to="/register">sign up</Link> to add
-                comments on this article.
+                <Link to="/login">Sign in</Link> or <Link to="/register">sign up</Link> to add comments on this article.
               </p>
             )}
 
-            {comments.map((comment) => (
+            {comments.map(comment => (
               <div key={comment.id} className="card">
                 <div className="card-block">
                   <p className="card-text">{comment.body}</p>
                 </div>
                 <div className="card-footer">
-                  <Link
-                    to={`/profile/${comment.author.username}`}
-                    className="comment-author"
-                  >
+                  <Link to={`/profile/${comment.author.username}`} className="comment-author">
                     {comment.author.image && (
-                      <img
-                        src={comment.author.image}
-                        className="comment-author-img"
-                        alt={comment.author.username}
-                      />
+                      <img src={comment.author.image} className="comment-author-img" alt={comment.author.username} />
                     )}
                     &nbsp;{comment.author.username}
                   </Link>
-                  <span className="date-posted">
-                    {new Date(comment.createdAt).toDateString()}
-                  </span>
+                  <span className="date-posted">{new Date(comment.createdAt).toDateString()}</span>
                   {isAuthenticated && user?.username === comment.author.username && (
                     <span className="mod-options">
                       <i
@@ -206,9 +192,7 @@ function ArticleMeta({ article, isOwner, isAuthenticated, onFavorite, onFollow, 
   return (
     <div className="article-meta">
       <Link to={`/profile/${article.author.username}`}>
-        {article.author.image && (
-          <img src={article.author.image} alt={article.author.username} />
-        )}
+        {article.author.image && <img src={article.author.image} alt={article.author.username} />}
       </Link>
       <div className="info">
         <Link to={`/profile/${article.author.username}`} className="author">
