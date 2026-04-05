@@ -14,16 +14,18 @@ client.interceptors.request.use(config => {
   return config;
 });
 
-// Interceptor 2 — global 401 handler + normalize error shape
+// Interceptor 2 — global 401 handler
+// Fires a custom event so AuthProvider can update its state cleanly,
+// rather than doing a hard window.location redirect here.
 client.interceptors.response.use(
   response => response,
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
-      // 401 on any endpoint except /user (used to validate token on startup)
+      // 401 on any endpoint except /user (which is used to validate the token on startup)
       const url = error.config?.url ?? '';
       if (error.response?.status === 401 && !url.endsWith('/user')) {
         destroyToken();
-        window.location.href = '/login';
+        window.dispatchEvent(new CustomEvent('conduit:logout'));
       }
     }
     return Promise.reject(error);
